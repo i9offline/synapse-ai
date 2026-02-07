@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plug,
@@ -10,6 +11,8 @@ import {
   CheckCircle,
   AlertCircle,
   ArrowRight,
+  Upload,
+  FileUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +44,16 @@ interface Source {
 }
 
 export default function SourcesPage() {
+  return (
+    <Suspense>
+      <SourcesContent />
+    </Suspense>
+  );
+}
+
+function SourcesContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState<string | null>(null);
@@ -48,6 +61,9 @@ export default function SourcesPage() {
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const autoSyncTriggered = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
   const fetchSources = useCallback(async () => {
     try {
@@ -65,6 +81,21 @@ export default function SourcesPage() {
   useEffect(() => {
     fetchSources();
   }, [fetchSources]);
+
+  // Auto-sync on first connection
+  useEffect(() => {
+    const syncId = searchParams.get("sync");
+    if (!syncId || autoSyncTriggered.current || loading || sources.length === 0) return;
+    autoSyncTriggered.current = true;
+
+    const source = sources.find((s) => s.id === syncId);
+    if (source && !source.syncedAt) {
+      // Clear sync param from URL
+      router.replace("/sources", { scroll: false });
+      handleSync(source);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, sources, loading]);
 
   async function handleSync(source: Source) {
     setSyncing(source.id);
@@ -94,6 +125,40 @@ export default function SourcesPage() {
       setMessage({ type: "error", text: "Sync failed. Please try again." });
     } finally {
       setSyncing(null);
+    }
+  }
+
+  async function handleUpload(files: FileList) {
+    setUploading(true);
+    setMessage(null);
+    try {
+      const formData = new FormData();
+      for (const file of Array.from(files)) {
+        formData.append("files", file);
+      }
+      const res = await fetch("/api/sources/file/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMessage({
+          type: "success",
+          text: `Uploaded ${data.filesProcessed} file(s), created ${data.chunksCreated} chunks`,
+        });
+        fetchSources();
+      } else {
+        const data = await res.json().catch(() => null);
+        setMessage({
+          type: "error",
+          text: data?.error || "Upload failed. Please try again.",
+        });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Upload failed. Please try again." });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -174,6 +239,39 @@ export default function SourcesPage() {
               </div>
               <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-gray-600 transition-colors" />
             </a>
+
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="liquid-glass rounded-2xl px-5 py-4 flex items-center gap-3 group transition-all hover:shadow-md w-64 text-left cursor-pointer disabled:opacity-50"
+            >
+              <div className="w-9 h-9 rounded-lg bg-black flex items-center justify-center flex-shrink-0">
+                {uploading ? (
+                  <Loader2 className="w-5 h-5 text-white animate-spin" />
+                ) : (
+                  <Upload className="w-5 h-5 text-white" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-sm text-gray-900">
+                  {uploading ? "Uploading..." : "Upload Files"}
+                </h3>
+                <p className="text-xs text-gray-400">PDF, Markdown, Text</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-gray-600 transition-colors" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.md,.txt"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  handleUpload(e.target.files);
+                }
+              }}
+            />
           </div>
         </div>
 
@@ -208,6 +306,8 @@ export default function SourcesPage() {
                     <div className="w-9 h-9 rounded-lg bg-black flex items-center justify-center flex-shrink-0">
                       {source.type === "notion" ? (
                         <NotionLogo className="w-5 h-5 text-black" />
+                      ) : source.type === "file" ? (
+                        <FileUp className="w-5 h-5 text-white" />
                       ) : (
                         <SlackLogo className="w-5 h-5 text-white" />
                       )}
@@ -236,19 +336,21 @@ export default function SourcesPage() {
                     </div>
 
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleSync(source)}
-                        disabled={syncing === source.id}
-                        className="h-8 w-8 text-gray-400 hover:text-gray-900 rounded-full"
-                      >
-                        {syncing === source.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="w-4 h-4" />
-                        )}
-                      </Button>
+                      {source.type !== "file" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleSync(source)}
+                          disabled={syncing === source.id}
+                          className="h-8 w-8 text-gray-400 hover:text-gray-900 rounded-full"
+                        >
+                          {syncing === source.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-4 h-4" />
+                          )}
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
