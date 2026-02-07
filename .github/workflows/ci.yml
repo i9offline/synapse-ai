@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npm run test:ci
+
+      - name: Build
+        run: npm run build
+        env:
+          DATABASE_URL: "postgresql://localhost:5432/synapse-ai"
+          BETTER_AUTH_SECRET: "ci-secret-key-for-build-only-not-real"
+          BETTER_AUTH_URL: "http://localhost:3000"
+          NEXT_PUBLIC_APP_URL: "http://localhost:3000"
