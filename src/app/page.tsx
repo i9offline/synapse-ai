@@ -91,7 +91,7 @@ export default function LandingPage() {
       </div>
 
       {/* Nav — liquid glass */}
-      <nav className="liquid-glass-nav rounded-full mx-4 sm:mx-8 mt-4 px-6 py-3 flex items-center justify-between max-w-6xl lg:mx-auto w-[calc(100%-2rem)] sm:w-[calc(100%-4rem)] lg:w-full sticky top-4 z-50">
+      <nav className="liquid-glass-nav rounded-full px-6 py-3 flex items-center justify-between max-w-6xl fixed top-4 left-4 right-4 sm:left-8 sm:right-8 lg:left-1/2 lg:-translate-x-1/2 lg:w-full z-50">
         <div className="flex items-center gap-2">
           <Logo size={36} />
           <span className="text-xl font-bold text-gray-900 font-[family-name:var(--font-sora)] tracking-tight">SynapseAI</span>
@@ -111,7 +111,7 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <main className="flex-1 flex flex-col items-center px-8 sm:px-12 lg:px-16 pt-20 pb-12">
+      <main className="flex-1 flex flex-col items-center px-8 sm:px-12 lg:px-16 pt-36 pb-12">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -128,7 +128,7 @@ export default function LandingPage() {
             Powered by GPT-4o & Claude Sonnet 4.5
           </motion.div>
 
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-6 text-gray-900">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6 text-gray-900">
             Your Knowledge,
             <br />
             Amplified by <span className="font-[family-name:var(--font-sora)]">SynapseAI</span>
@@ -172,7 +172,7 @@ export default function LandingPage() {
             <Link href="/sign-up">
               <Button
                 size="lg"
-                className="bg-gray-900 hover:bg-gray-800 text-white text-base px-8 py-5 rounded-full"
+                className="bg-gray-900 hover:bg-gray-800 text-white text-base px-8 py-3 rounded-full"
               >
                 Start for Free
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -182,7 +182,7 @@ export default function LandingPage() {
               <Button
                 size="lg"
                 variant="outline"
-                className="text-base px-8 py-5 rounded-full border-gray-200 text-gray-700 hover:bg-gray-50"
+                className="text-base px-8 py-3 rounded-full border-gray-200 text-gray-700 hover:bg-gray-50"
               >
                 Sign In
               </Button>
@@ -378,7 +378,7 @@ export default function LandingPage() {
                 <Link href="/sign-up">
                   <Button
                     size="lg"
-                    className="bg-white hover:bg-gray-100 text-gray-900 text-base px-8 py-5 rounded-full font-semibold"
+                    className="bg-white hover:bg-gray-100 text-gray-900 text-base px-8 py-3 rounded-full font-semibold"
                   >
                     Get Started for Free
                     <ArrowRight className="w-4 h-4 ml-2" />
@@ -387,8 +387,7 @@ export default function LandingPage() {
                 <Link href="/sign-in">
                   <Button
                     size="lg"
-                    variant="outline"
-                    className="text-base px-8 py-5 rounded-full border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
+                    className="text-base px-8 py-3 rounded-full text-white bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]"
                   >
                     Sign In
                   </Button>
@@ -406,7 +405,7 @@ export default function LandingPage() {
             <Logo size={22} />
             <span className="text-sm font-semibold text-gray-900 font-[family-name:var(--font-sora)]">SynapseAI</span>
           </div>
-          <span className="text-sm text-gray-400">&copy; 2025 SynapseAI</span>
+          <span className="text-sm text-gray-400">&copy; 2026 SynapseAI</span>
         </div>
       </footer>
     </div>

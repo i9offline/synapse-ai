@@ -42,7 +42,7 @@ export function ChatMessages({ messages, isStreaming }: ChatMessagesProps) {
   }
 
   return (
-    <ScrollArea className="flex-1">
+    <ScrollArea className="flex-1 min-h-0">
       <div className="max-w-4xl mx-auto p-6 space-y-6">
         <AnimatePresence>
           {messages.map((message, index) => (

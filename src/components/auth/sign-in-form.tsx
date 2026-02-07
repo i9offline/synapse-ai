@@ -64,9 +64,9 @@ export function SignInForm() {
           className="w-full max-w-sm"
         >
           {/* Logo */}
-          <div className="flex items-center justify-center gap-2 mb-10">
-            <Logo size={28} />
-            <span className="text-xl font-bold text-gray-900">SynapseAI</span>
+          <div className="flex flex-col items-center mb-10">
+            <Logo size={44} className="mb-3" />
+            <span className="text-xl font-bold text-gray-900 font-[family-name:var(--font-sora)] tracking-tight">SynapseAI</span>
           </div>
 
           {/* Card */}

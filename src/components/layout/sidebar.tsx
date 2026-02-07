@@ -10,13 +10,24 @@ import {
   Settings,
   Plus,
   Trash2,
+  Pencil,
+  MoreHorizontal,
   LogOut,
   PanelLeftClose,
   PanelLeft,
+  Check,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { signOut, useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +40,6 @@ interface Conversation {
 const navItems = [
   { href: "/chat", icon: MessageSquare, label: "Chat" },
   { href: "/sources", icon: Plug, label: "Sources" },
-  { href: "/settings", icon: Settings, label: "Settings" },
 ];
 
 export function Sidebar() {
@@ -38,6 +48,8 @@ export function Sidebar() {
   const { data: session } = useSession();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [collapsed, setCollapsed] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
 
   useEffect(() => {
     fetchConversations();
@@ -83,6 +95,28 @@ export function Sidebar() {
       }
     } catch (error) {
       console.error("Failed to delete conversation:", error);
+    }
+  }
+
+  async function handleRename(id: string) {
+    const trimmed = editingTitle.trim();
+    if (!trimmed) {
+      setEditingId(null);
+      return;
+    }
+    try {
+      await fetch(`/api/conversations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: trimmed }),
+      });
+      setConversations((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, title: trimmed } : c))
+      );
+    } catch (error) {
+      console.error("Failed to rename conversation:", error);
+    } finally {
+      setEditingId(null);
     }
   }
 
@@ -185,28 +219,83 @@ export function Sidebar() {
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -10 }}
                   >
-                    <Link href={`/chat/${conv.id}`}>
-                      <div
-                        className={cn(
-                          "group flex items-center justify-between px-3 py-2 rounded-lg transition-colors duration-200 mb-1",
-                          isActive
-                            ? "bg-gray-100 text-gray-900"
-                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                        )}
-                      >
-                        <span className="text-sm truncate flex-1">
-                          {conv.title}
-                        </span>
+                    {editingId === conv.id ? (
+                      <div className="flex items-center gap-1 px-3 py-2 rounded-lg bg-gray-100 mb-1">
+                        <input
+                          autoFocus
+                          value={editingTitle}
+                          onChange={(e) => setEditingTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleRename(conv.id);
+                            if (e.key === "Escape") setEditingId(null);
+                          }}
+                          className="text-sm bg-white border border-gray-300 rounded px-1.5 py-0.5 flex-1 min-w-0 outline-none focus:border-gray-500"
+                        />
                         <button
-                          onClick={(e) =>
-                            handleDeleteConversation(conv.id, e)
-                          }
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:text-red-500"
+                          onClick={() => handleRename(conv.id)}
+                          className="p-1 text-gray-400 hover:text-gray-900 flex-shrink-0"
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <Check className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="p-1 text-gray-400 hover:text-gray-900 flex-shrink-0"
+                        >
+                          <X className="w-3 h-3" />
                         </button>
                       </div>
-                    </Link>
+                    ) : (
+                      <Link href={`/chat/${conv.id}`} className="block mb-1">
+                        <div
+                          className={cn(
+                            "group relative flex items-center px-3 py-2 rounded-lg transition-colors duration-200",
+                            isActive
+                              ? "bg-gray-100 text-gray-900"
+                              : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                          )}
+                        >
+                          <span className="text-sm line-clamp-1 break-all flex-1 min-w-0 pr-6">
+                            {conv.title}
+                          </span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                onClick={(e) => e.preventDefault()}
+                                className={cn(
+                                  "absolute right-1 p-1 rounded transition-colors flex-shrink-0",
+                                  isActive
+                                    ? "text-gray-400 hover:text-gray-900 hover:bg-gray-200"
+                                    : "text-gray-400 hover:text-gray-900 hover:bg-gray-200 opacity-0 group-hover:opacity-100"
+                                )}
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent side="right" align="start" className="w-40">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setEditingId(conv.id);
+                                  setEditingTitle(conv.title);
+                                }}
+                                className="cursor-pointer"
+                              >
+                                <Pencil className="w-3.5 h-3.5 mr-2" />
+                                Rename
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={(e) => handleDeleteConversation(conv.id, e)}
+                                className="cursor-pointer text-red-600 focus:text-red-600"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </Link>
+                    )}
                   </motion.div>
                 );
               })}
@@ -217,38 +306,53 @@ export function Sidebar() {
 
       {/* User */}
       <div className="p-3 mt-auto border-t border-gray-200">
-        <div
-          className={cn(
-            "flex items-center gap-3 px-3 py-2",
-            collapsed ? "justify-center" : ""
-          )}
-        >
-          <div className="w-8 h-8 rounded-full bg-gray-900 flex items-center justify-center flex-shrink-0">
-            <span className="text-xs font-bold text-white">
-              {session?.user?.name?.[0]?.toUpperCase() || "?"}
-            </span>
-          </div>
-          {!collapsed && (
-            <>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {session?.user?.name}
-                </p>
-                <p className="text-xs text-gray-400 truncate">
-                  {session?.user?.email}
-                </p>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-lg w-full hover:bg-gray-50 transition-colors",
+                collapsed ? "justify-center" : ""
+              )}
+            >
+              <div className="w-8 h-8 rounded-full bg-gray-900 flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-bold text-white">
+                  {session?.user?.name?.[0]?.toUpperCase() || "?"}
+                </span>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleSignOut}
-                className="text-gray-400 hover:text-red-500 flex-shrink-0"
-              >
-                <LogOut className="w-4 h-4" />
-              </Button>
-            </>
-          )}
-        </div>
+              {!collapsed && (
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {session?.user?.name}
+                  </p>
+                  <p className="text-xs text-gray-400 truncate">
+                    {session?.user?.email}
+                  </p>
+                </div>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            side="top"
+            align="start"
+            className="w-56 mb-1"
+          >
+            <DropdownMenuItem
+              onClick={() => router.push("/settings")}
+              className="cursor-pointer"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleSignOut}
+              className="cursor-pointer text-red-600 focus:text-red-600"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </motion.aside>
   );
