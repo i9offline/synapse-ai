@@ -1,7 +1,7 @@
 export type MessageRole = "user" | "assistant" | "system";
 
 export interface Citation {
-  sourceType: "notion" | "slack";
+  sourceType: "notion" | "slack" | "file";
   sourceName: string;
   documentTitle: string;
   chunk: string;
@@ -28,7 +28,7 @@ export interface ConversationWithMessages {
 
 export interface SourceInfo {
   id: string;
-  type: "notion" | "slack";
+  type: "notion" | "slack" | "file";
   name: string;
   documentCount: number;
   syncedAt: Date | null;

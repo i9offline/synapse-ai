@@ -6,6 +6,7 @@ import {
   deleteConversation,
 } from "@/services/conversation";
 import { createConversationSchema } from "@/lib/validators";
+import { rateLimitResponse } from "@/lib/rate-limit";
 
 export async function GET() {
   try {
@@ -13,6 +14,9 @@ export async function GET() {
     if (!session?.user) {
       return new Response("Unauthorized", { status: 401 });
     }
+
+    const limited = rateLimitResponse(session.user.id, "default");
+    if (limited) return limited;
 
     const conversations = await getUserConversations(session.user.id);
     return Response.json(conversations);

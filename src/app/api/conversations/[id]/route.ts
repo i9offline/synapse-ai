@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { getConversation, updateConversationTitle, deleteConversation } from "@/services/conversation";
 import { NextRequest } from "next/server";
+import { rateLimitResponse } from "@/lib/rate-limit";
 
 export async function GET(
   _req: NextRequest,
@@ -12,6 +13,9 @@ export async function GET(
     if (!session?.user) {
       return new Response("Unauthorized", { status: 401 });
     }
+
+    const limited = rateLimitResponse(session.user.id, "default");
+    if (limited) return limited;
 
     const { id } = await params;
     const conversation = await getConversation(id, session.user.id);

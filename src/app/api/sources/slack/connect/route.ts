@@ -8,11 +8,12 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
 
+  const redirectUri = `${url.origin}/api/sources/slack/connect`;
+
   if (!code) {
     const clientId = process.env.SLACK_CLIENT_ID;
-    const redirectUri = process.env.SLACK_REDIRECT_URI;
     const scopes = "channels:history,channels:read,channels:join,groups:history,groups:read,team:read";
-    const authUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scopes}&redirect_uri=${encodeURIComponent(redirectUri!)}`;
+    const authUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scopes}&redirect_uri=${encodeURIComponent(redirectUri)}`;
     return NextResponse.redirect(authUrl);
   }
 
@@ -29,7 +30,7 @@ export async function GET(req: Request) {
         client_id: process.env.SLACK_CLIENT_ID!,
         client_secret: process.env.SLACK_CLIENT_SECRET!,
         code,
-        redirect_uri: process.env.SLACK_REDIRECT_URI!,
+        redirect_uri: redirectUri,
       }),
     });
 

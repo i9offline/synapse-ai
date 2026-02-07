@@ -7,6 +7,7 @@ import { createMessage } from "@/services/message";
 import { createConversation } from "@/services/conversation";
 import { chatMessageSchema } from "@/lib/validators";
 import { db } from "@/lib/db";
+import { rateLimitResponse } from "@/lib/rate-limit";
 import type { AIModel } from "@/types";
 
 export async function POST(req: Request) {
@@ -15,6 +16,9 @@ export async function POST(req: Request) {
     if (!session?.user) {
       return new Response("Unauthorized", { status: 401 });
     }
+
+    const limited = rateLimitResponse(session.user.id, "chat");
+    if (limited) return limited;
 
     const body = await req.json();
     const parsed = chatMessageSchema.safeParse(body);
@@ -56,9 +60,15 @@ export async function POST(req: Request) {
     // Save user message
     await createMessage(convId, "user", message);
 
-    // RAG: retrieve relevant context
-    const chunks = await retrieveRelevantChunks(message, session.user.id);
-    const { contextText, citations } = buildRAGContext(chunks);
+    // RAG: retrieve relevant context (graceful fallback if embeddings fail)
+    let contextText = "";
+    let citations: import("@/types").Citation[] = [];
+    try {
+      const chunks = await retrieveRelevantChunks(message, session.user.id);
+      ({ contextText, citations } = buildRAGContext(chunks));
+    } catch {
+      console.warn("RAG retrieval failed, continuing without context");
+    }
     const systemPrompt = buildSystemPrompt(contextText);
 
     // Build message history
@@ -92,9 +102,12 @@ export async function POST(req: Request) {
 
     const response = result.toTextStreamResponse();
 
-    // Add custom headers
+    // Add custom headers (Base64-encode citations to avoid non-ASCII header issues)
     response.headers.set("X-Conversation-Id", convId);
-    response.headers.set("X-Citations", JSON.stringify(citations));
+    response.headers.set(
+      "X-Citations",
+      Buffer.from(JSON.stringify(citations)).toString("base64")
+    );
 
     return response;
   } catch (error) {

@@ -7,11 +7,11 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
 
+  const redirectUri = `${url.origin}/api/sources/notion/connect`;
+
   if (!code) {
-    // Redirect to Notion OAuth
     const clientId = process.env.NOTION_CLIENT_ID;
-    const redirectUri = process.env.NOTION_REDIRECT_URI;
-    const authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${clientId}&response_type=code&owner=user&redirect_uri=${encodeURIComponent(redirectUri!)}`;
+    const authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${clientId}&response_type=code&owner=user&redirect_uri=${encodeURIComponent(redirectUri)}`;
     return NextResponse.redirect(authUrl);
   }
 
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
       body: JSON.stringify({
         grant_type: "authorization_code",
         code,
-        redirect_uri: process.env.NOTION_REDIRECT_URI,
+        redirect_uri: redirectUri,
       }),
     });
 
