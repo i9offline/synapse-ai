@@ -44,7 +44,7 @@ export default function ChatPage() {
         let citations: Citation[] | undefined;
         if (citationsHeader) {
           try {
-            citations = JSON.parse(citationsHeader);
+            citations = JSON.parse(atob(citationsHeader));
           } catch {
             // ignore
           }
