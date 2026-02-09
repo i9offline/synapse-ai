@@ -4,7 +4,7 @@
 
 # Synapse AI
 
-A minimalist SaaS application featuring an intelligent AI chatbot with RAG (Retrieval-Augmented Generation), built for the Cobalt technical assessment.
+A minimalist SaaS application featuring an intelligent AI chatbot with RAG (Retrieval-Augmented Generation).
 
 **Live Demo:** [https://synapse-ai-nine.vercel.app](https://synapse-ai-nine.vercel.app)
 
