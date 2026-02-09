@@ -7,12 +7,13 @@ import {
 } from "@/services/conversation";
 import { createConversationSchema } from "@/lib/validators";
 import { rateLimitResponse } from "@/lib/rate-limit";
+import { errorResponse, unauthorizedResponse, validationErrorResponse } from "@/lib/api-error";
 
 export async function GET() {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) {
-      return new Response("Unauthorized", { status: 401 });
+      return unauthorizedResponse();
     }
 
     const limited = rateLimitResponse(session.user.id, "default");
@@ -21,8 +22,7 @@ export async function GET() {
     const conversations = await getUserConversations(session.user.id);
     return Response.json(conversations);
   } catch (error) {
-    console.error("Get conversations error:", error);
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) {
-      return new Response("Unauthorized", { status: 401 });
+      return unauthorizedResponse();
     }
 
     const limited = rateLimitResponse(session.user.id, "default");
@@ -40,10 +40,7 @@ export async function POST(req: Request) {
     const parsed = createConversationSchema.safeParse(body);
 
     if (!parsed.success) {
-      return Response.json(
-        { error: parsed.error.flatten().fieldErrors },
-        { status: 400 }
-      );
+      return validationErrorResponse(parsed.error.flatten().fieldErrors);
     }
 
     const conversation = await createConversation(
@@ -54,8 +51,7 @@ export async function POST(req: Request) {
 
     return Response.json(conversation, { status: 201 });
   } catch (error) {
-    console.error("Create conversation error:", error);
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -63,7 +59,7 @@ export async function DELETE(req: Request) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) {
-      return new Response("Unauthorized", { status: 401 });
+      return unauthorizedResponse();
     }
 
     const limited = rateLimitResponse(session.user.id, "default");
@@ -73,13 +69,12 @@ export async function DELETE(req: Request) {
     const id = searchParams.get("id");
 
     if (!id) {
-      return Response.json({ error: "Conversation ID required" }, { status: 400 });
+      return Response.json({ error: "Conversation ID required", code: "BAD_REQUEST" }, { status: 400 });
     }
 
     await deleteConversation(id, session.user.id);
     return Response.json({ success: true });
   } catch (error) {
-    console.error("Delete conversation error:", error);
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

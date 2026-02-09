@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChatMessages } from "@/components/chat/chat-messages";
 import { ChatInput } from "@/components/chat/chat-input";
 import { ModelSelector } from "@/components/chat/model-selector";
+import { useToast } from "@/components/ui/toaster";
 import type { AIModel, Citation } from "@/types";
 
 interface ChatMessage {
@@ -16,6 +17,7 @@ interface ChatMessage {
 
 export default function ChatPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [model, setModel] = useState<AIModel>("gpt-4o");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -37,7 +39,16 @@ export default function ChatPage() {
           body: JSON.stringify({ message: content, model }),
         });
 
-        if (!res.ok) throw new Error("Chat request failed");
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          const errorMsg =
+            res.status === 429
+              ? "Too many requests. Please wait a moment."
+              : data?.error || "Failed to send message";
+          toast("error", errorMsg);
+          setMessages((prev) => prev.filter((m) => m.id !== userMsg.id));
+          return;
+        }
 
         const convId = res.headers.get("X-Conversation-Id");
         const citationsHeader = res.headers.get("X-Citations");
@@ -62,19 +73,23 @@ export default function ChatPage() {
         ]);
 
         if (reader) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
 
-            const chunk = decoder.decode(value, { stream: true });
-            assistantContent += chunk;
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId
-                  ? { ...m, content: assistantContent }
-                  : m
-              )
-            );
+              const chunk = decoder.decode(value, { stream: true });
+              assistantContent += chunk;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, content: assistantContent }
+                    : m
+                )
+              );
+            }
+          } catch {
+            toast("error", "Connection lost during response. Please try again.");
           }
         }
 
@@ -82,13 +97,14 @@ export default function ChatPage() {
         if (convId) {
           router.push(`/chat/${convId}`);
         }
-      } catch (error) {
-        console.error("Chat error:", error);
+      } catch {
+        toast("error", "Failed to send message. Check your connection.");
+        setMessages((prev) => prev.filter((m) => m.id !== userMsg.id));
       } finally {
         setIsStreaming(false);
       }
     },
-    [model, router]
+    [model, router, toast]
   );
 
   return (

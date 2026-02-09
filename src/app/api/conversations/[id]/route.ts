@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { getConversation, updateConversationTitle, deleteConversation } from "@/services/conversation";
 import { NextRequest } from "next/server";
 import { rateLimitResponse } from "@/lib/rate-limit";
+import { errorResponse, unauthorizedResponse } from "@/lib/api-error";
 
 export async function GET(
   _req: NextRequest,
@@ -11,7 +12,7 @@ export async function GET(
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) {
-      return new Response("Unauthorized", { status: 401 });
+      return unauthorizedResponse();
     }
 
     const limited = rateLimitResponse(session.user.id, "default");
@@ -21,13 +22,12 @@ export async function GET(
     const conversation = await getConversation(id, session.user.id);
 
     if (!conversation) {
-      return Response.json({ error: "Not found" }, { status: 404 });
+      return Response.json({ error: "Not found", code: "NOT_FOUND" }, { status: 404 });
     }
 
     return Response.json(conversation);
   } catch (error) {
-    console.error("Get conversation error:", error);
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -38,7 +38,7 @@ export async function PATCH(
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) {
-      return new Response("Unauthorized", { status: 401 });
+      return unauthorizedResponse();
     }
 
     const limited = rateLimitResponse(session.user.id, "default");
@@ -50,8 +50,7 @@ export async function PATCH(
     const conversation = await updateConversationTitle(id, session.user.id, title);
     return Response.json(conversation);
   } catch (error) {
-    console.error("Update conversation error:", error);
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }
 
@@ -62,7 +61,7 @@ export async function DELETE(
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) {
-      return new Response("Unauthorized", { status: 401 });
+      return unauthorizedResponse();
     }
 
     const limited = rateLimitResponse(session.user.id, "default");
@@ -72,7 +71,6 @@ export async function DELETE(
     await deleteConversation(id, session.user.id);
     return Response.json({ success: true });
   } catch (error) {
-    console.error("Delete conversation error:", error);
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

@@ -6,6 +6,7 @@ import { MoreHorizontal, Pencil, Trash2, Check, X } from "lucide-react";
 import { ChatMessages } from "@/components/chat/chat-messages";
 import { ChatInput } from "@/components/chat/chat-input";
 import { ModelSelector } from "@/components/chat/model-selector";
+import { useToast } from "@/components/ui/toaster";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,11 +33,13 @@ interface ChatMessage {
 export default function ConversationPage() {
   const params = useParams();
   const router = useRouter();
+  const { toast } = useToast();
   const conversationId = params.id as string;
   const [model, setModel] = useState<AIModel>("gpt-4o");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationTitle, setConversationTitle] = useState("Chat");
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingTitle, setEditingTitle] = useState("");
@@ -57,15 +60,22 @@ export default function ConversationPage() {
               citations: m.citations as Citation[] | undefined,
             }))
           );
+        } else if (res.status === 404) {
+          setLoadError(true);
+          toast("error", "Conversation not found");
+        } else {
+          setLoadError(true);
+          toast("error", "Failed to load conversation");
         }
-      } catch (error) {
-        console.error("Failed to load conversation:", error);
+      } catch {
+        setLoadError(true);
+        toast("error", "Failed to load conversation. Check your connection.");
       } finally {
         setLoaded(true);
       }
     }
     loadConversation();
-  }, [conversationId]);
+  }, [conversationId, toast]);
 
   async function handleRename() {
     const trimmed = editingTitle.trim();
@@ -74,14 +84,18 @@ export default function ConversationPage() {
       return;
     }
     try {
-      await fetch(`/api/conversations/${conversationId}`, {
+      const res = await fetch(`/api/conversations/${conversationId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: trimmed }),
       });
-      setConversationTitle(trimmed);
-    } catch (error) {
-      console.error("Failed to rename:", error);
+      if (res.ok) {
+        setConversationTitle(trimmed);
+      } else {
+        toast("error", "Failed to rename conversation");
+      }
+    } catch {
+      toast("error", "Failed to rename conversation");
     } finally {
       setIsEditing(false);
     }
@@ -89,10 +103,14 @@ export default function ConversationPage() {
 
   async function handleDelete() {
     try {
-      await fetch(`/api/conversations?id=${conversationId}`, { method: "DELETE" });
-      router.push("/chat");
-    } catch (error) {
-      console.error("Failed to delete:", error);
+      const res = await fetch(`/api/conversations?id=${conversationId}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/chat");
+      } else {
+        toast("error", "Failed to delete conversation");
+      }
+    } catch {
+      toast("error", "Failed to delete conversation");
     }
   }
 
@@ -118,7 +136,16 @@ export default function ConversationPage() {
           }),
         });
 
-        if (!res.ok) throw new Error("Chat request failed");
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          const errorMsg =
+            res.status === 429
+              ? "Too many requests. Please wait a moment."
+              : data?.error || "Failed to send message";
+          toast("error", errorMsg);
+          setMessages((prev) => prev.filter((m) => m.id !== userMsg.id));
+          return;
+        }
 
         const citationsHeader = res.headers.get("X-Citations");
         let citations: Citation[] | undefined;
@@ -143,34 +170,53 @@ export default function ConversationPage() {
         ]);
 
         if (reader) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
 
-            const chunk = decoder.decode(value, { stream: true });
-            assistantContent += chunk;
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId
-                  ? { ...m, content: assistantContent }
-                  : m
-              )
-            );
+              const chunk = decoder.decode(value, { stream: true });
+              assistantContent += chunk;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, content: assistantContent }
+                    : m
+                )
+              );
+            }
+          } catch {
+            toast("error", "Connection lost during response. Please try again.");
           }
         }
-      } catch (error) {
-        console.error("Chat error:", error);
+      } catch {
+        toast("error", "Failed to send message. Check your connection.");
+        setMessages((prev) => prev.filter((m) => m.id !== userMsg.id));
       } finally {
         setIsStreaming(false);
       }
     },
-    [model, conversationId]
+    [model, conversationId, toast]
   );
 
   if (!loaded) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="w-8 h-8 rounded-lg bg-gray-100 animate-pulse" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3">
+        <p className="text-sm text-gray-500">Could not load this conversation.</p>
+        <button
+          onClick={() => router.push("/chat")}
+          className="text-sm text-gray-900 underline underline-offset-2 hover:text-gray-700"
+        >
+          Start a new chat
+        </button>
       </div>
     );
   }

@@ -4,6 +4,7 @@ import { createSource, updateSourceSyncTime } from "@/services/source";
 import { embedAndStoreChunks } from "@/lib/ai/embeddings";
 import { db } from "@/lib/db";
 import { rateLimitResponse } from "@/lib/rate-limit";
+import { errorResponse, unauthorizedResponse } from "@/lib/api-error";
 import {
   validateFile,
   parseFileToText,
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) {
-      return new Response("Unauthorized", { status: 401 });
+      return unauthorizedResponse();
     }
 
     const limited = rateLimitResponse(session.user.id, "upload");
@@ -26,12 +27,12 @@ export async function POST(req: Request) {
     const files = formData.getAll("files") as File[];
 
     if (files.length === 0) {
-      return Response.json({ error: "No files provided" }, { status: 400 });
+      return Response.json({ error: "No files provided", code: "BAD_REQUEST" }, { status: 400 });
     }
 
     if (files.length > MAX_FILES) {
       return Response.json(
-        { error: `Maximum ${MAX_FILES} files per upload` },
+        { error: `Maximum ${MAX_FILES} files per upload`, code: "BAD_REQUEST" },
         { status: 400 }
       );
     }
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
         validateFile(file);
       } catch (error) {
         if (error instanceof FileValidationError) {
-          return Response.json({ error: error.message }, { status: 400 });
+          return Response.json({ error: error.message, code: "VALIDATION_ERROR" }, { status: 400 });
         }
         throw error;
       }
@@ -68,7 +69,7 @@ export async function POST(req: Request) {
         content = await parseFileToText(file);
       } catch (error) {
         if (error instanceof FileValidationError) {
-          return Response.json({ error: error.message }, { status: 400 });
+          return Response.json({ error: error.message, code: "VALIDATION_ERROR" }, { status: 400 });
         }
         throw error;
       }
@@ -104,7 +105,6 @@ export async function POST(req: Request) {
       chunksCreated: totalChunks,
     });
   } catch (error) {
-    console.error("File upload error:", error);
-    return Response.json({ error: "Upload failed" }, { status: 500 });
+    return errorResponse(error);
   }
 }

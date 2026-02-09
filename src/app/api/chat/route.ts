@@ -8,13 +8,14 @@ import { createConversation } from "@/services/conversation";
 import { chatMessageSchema } from "@/lib/validators";
 import { db } from "@/lib/db";
 import { rateLimitResponse } from "@/lib/rate-limit";
+import { errorResponse, unauthorizedResponse, validationErrorResponse } from "@/lib/api-error";
 import type { AIModel } from "@/types";
 
 export async function POST(req: Request) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) {
-      return new Response("Unauthorized", { status: 401 });
+      return unauthorizedResponse();
     }
 
     const limited = rateLimitResponse(session.user.id, "chat");
@@ -24,10 +25,7 @@ export async function POST(req: Request) {
     const parsed = chatMessageSchema.safeParse(body);
 
     if (!parsed.success) {
-      return Response.json(
-        { error: parsed.error.flatten().fieldErrors },
-        { status: 400 }
-      );
+      return validationErrorResponse(parsed.error.flatten().fieldErrors);
     }
 
     const { message, conversationId, model } = parsed.data;
@@ -54,7 +52,7 @@ export async function POST(req: Request) {
     });
 
     if (!conversation) {
-      return Response.json({ error: "Conversation not found" }, { status: 404 });
+      return Response.json({ error: "Conversation not found", code: "NOT_FOUND" }, { status: 404 });
     }
 
     // Save user message
@@ -111,7 +109,6 @@ export async function POST(req: Request) {
 
     return response;
   } catch (error) {
-    console.error("Chat API error:", error);
-    return Response.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
 }

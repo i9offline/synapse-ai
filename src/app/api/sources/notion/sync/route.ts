@@ -5,12 +5,13 @@ import { getNotionPages, getPageContent, getPageTitle } from "@/lib/notion/clien
 import { embedAndStoreChunks } from "@/lib/ai/embeddings";
 import { db } from "@/lib/db";
 import { rateLimitResponse } from "@/lib/rate-limit";
+import { errorResponse, unauthorizedResponse } from "@/lib/api-error";
 
 export async function POST(req: Request) {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) {
-      return new Response("Unauthorized", { status: 401 });
+      return unauthorizedResponse();
     }
 
     const limited = rateLimitResponse(session.user.id, "sync");
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
     const source = await getSource(sourceId, session.user.id);
 
     if (!source || source.type !== "notion") {
-      return Response.json({ error: "Source not found" }, { status: 404 });
+      return Response.json({ error: "Source not found", code: "NOT_FOUND" }, { status: 404 });
     }
 
     const pages = await getNotionPages(source.accessToken);
@@ -69,7 +70,6 @@ export async function POST(req: Request) {
       chunksCreated: totalChunks,
     });
   } catch (error) {
-    console.error("Notion sync error:", error);
-    return Response.json({ error: "Sync failed" }, { status: 500 });
+    return errorResponse(error);
   }
 }

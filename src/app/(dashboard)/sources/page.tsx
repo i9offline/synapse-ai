@@ -8,14 +8,13 @@ import {
   RefreshCw,
   Trash2,
   Loader2,
-  CheckCircle,
-  AlertCircle,
   ArrowRight,
   Upload,
   FileUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/components/ui/toaster";
 
 function NotionLogo({ className }: { className?: string }) {
   return (
@@ -54,13 +53,10 @@ export default function SourcesPage() {
 function SourcesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { toast } = useToast();
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState<string | null>(null);
-  const [message, setMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
   const autoSyncTriggered = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -70,13 +66,15 @@ function SourcesContent() {
       const res = await fetch("/api/sources");
       if (res.ok) {
         setSources(await res.json());
+      } else {
+        toast("error", "Failed to load sources");
       }
-    } catch (error) {
-      console.error("Failed to fetch sources:", error);
+    } catch {
+      toast("error", "Failed to load sources");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     fetchSources();
@@ -99,7 +97,6 @@ function SourcesContent() {
 
   async function handleSync(source: Source) {
     setSyncing(source.id);
-    setMessage(null);
     try {
       const endpoint =
         source.type === "notion"
@@ -113,16 +110,16 @@ function SourcesContent() {
 
       if (res.ok) {
         const data = await res.json();
-        setMessage({
-          type: "success",
-          text: `Synced ${data.pagesProcessed || data.channelsProcessed} items, created ${data.chunksCreated} chunks`,
-        });
+        toast(
+          "success",
+          `Synced ${data.pagesProcessed || data.channelsProcessed} items, created ${data.chunksCreated} chunks`
+        );
         fetchSources();
       } else {
-        setMessage({ type: "error", text: "Sync failed. Please try again." });
+        toast("error", "Sync failed. Please try again.");
       }
     } catch {
-      setMessage({ type: "error", text: "Sync failed. Please try again." });
+      toast("error", "Sync failed. Please try again.");
     } finally {
       setSyncing(null);
     }
@@ -130,7 +127,6 @@ function SourcesContent() {
 
   async function handleUpload(files: FileList) {
     setUploading(true);
-    setMessage(null);
     try {
       const formData = new FormData();
       for (const file of Array.from(files)) {
@@ -142,20 +138,17 @@ function SourcesContent() {
       });
       if (res.ok) {
         const data = await res.json();
-        setMessage({
-          type: "success",
-          text: `Uploaded ${data.filesProcessed} file(s), created ${data.chunksCreated} chunks`,
-        });
+        toast(
+          "success",
+          `Uploaded ${data.filesProcessed} file(s), created ${data.chunksCreated} chunks`
+        );
         fetchSources();
       } else {
         const data = await res.json().catch(() => null);
-        setMessage({
-          type: "error",
-          text: data?.error || "Upload failed. Please try again.",
-        });
+        toast("error", data?.error || "Upload failed. Please try again.");
       }
     } catch {
-      setMessage({ type: "error", text: "Upload failed. Please try again." });
+      toast("error", "Upload failed. Please try again.");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -164,11 +157,15 @@ function SourcesContent() {
 
   async function handleDelete(id: string) {
     try {
-      await fetch(`/api/sources?id=${id}`, { method: "DELETE" });
-      setSources((prev) => prev.filter((s) => s.id !== id));
-      setMessage({ type: "success", text: "Source disconnected" });
+      const res = await fetch(`/api/sources?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setSources((prev) => prev.filter((s) => s.id !== id));
+        toast("success", "Source disconnected");
+      } else {
+        toast("error", "Failed to disconnect source");
+      }
     } catch {
-      setMessage({ type: "error", text: "Failed to disconnect source" });
+      toast("error", "Failed to disconnect source");
     }
   }
 
@@ -182,29 +179,6 @@ function SourcesContent() {
             Connect external services to enhance your AI with relevant context
           </p>
         </div>
-
-        {/* Status message */}
-        <AnimatePresence>
-          {message && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm max-w-lg ${
-                message.type === "success"
-                  ? "bg-green-50 text-green-700 border border-green-200"
-                  : "bg-red-50 text-red-700 border border-red-200"
-              }`}
-            >
-              {message.type === "success" ? (
-                <CheckCircle className="w-4 h-4" />
-              ) : (
-                <AlertCircle className="w-4 h-4" />
-              )}
-              {message.text}
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Connect buttons */}
         <div className="space-y-3">
