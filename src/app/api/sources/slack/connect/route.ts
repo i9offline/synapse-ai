@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { createSource } from "@/services/source";
 import { getSlackTeamInfo } from "@/lib/slack/client";
+import { rateLimitResponse } from "@/lib/rate-limit";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -22,6 +23,9 @@ export async function GET(req: Request) {
     if (!session?.user) {
       return NextResponse.redirect(new URL("/sign-in", url.origin));
     }
+
+    const limited = rateLimitResponse(session.user.id, "sync");
+    if (limited) return limited;
 
     const tokenRes = await fetch("https://slack.com/api/oauth.v2.access", {
       method: "POST",

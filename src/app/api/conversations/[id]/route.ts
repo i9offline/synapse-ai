@@ -41,6 +41,9 @@ export async function PATCH(
       return new Response("Unauthorized", { status: 401 });
     }
 
+    const limited = rateLimitResponse(session.user.id, "default");
+    if (limited) return limited;
+
     const { id } = await params;
     const { title } = await req.json();
 
@@ -61,6 +64,9 @@ export async function DELETE(
     if (!session?.user) {
       return new Response("Unauthorized", { status: 401 });
     }
+
+    const limited = rateLimitResponse(session.user.id, "default");
+    if (limited) return limited;
 
     const { id } = await params;
     await deleteConversation(id, session.user.id);

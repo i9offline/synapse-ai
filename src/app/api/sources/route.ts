@@ -28,6 +28,9 @@ export async function DELETE(req: Request) {
       return new Response("Unauthorized", { status: 401 });
     }
 
+    const limited = rateLimitResponse(session.user.id, "default");
+    if (limited) return limited;
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 

@@ -33,6 +33,9 @@ export async function POST(req: Request) {
       return new Response("Unauthorized", { status: 401 });
     }
 
+    const limited = rateLimitResponse(session.user.id, "default");
+    if (limited) return limited;
+
     const body = await req.json();
     const parsed = createConversationSchema.safeParse(body);
 
@@ -62,6 +65,9 @@ export async function DELETE(req: Request) {
     if (!session?.user) {
       return new Response("Unauthorized", { status: 401 });
     }
+
+    const limited = rateLimitResponse(session.user.id, "default");
+    if (limited) return limited;
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
